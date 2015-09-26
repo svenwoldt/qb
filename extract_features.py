@@ -8,6 +8,7 @@ import pickle
 from unidecode import unidecode
 
 from numpy import var, mean
+from pyspark import SparkContext
 
 from util.qdb import QuestionDatabase
 from extractors.ir import IrExtractor
@@ -74,8 +75,7 @@ def feature_lines(qq, guess_list, granularity, feature_generator):
             # Check to see if it's cached
             if pp in guesses_cached[(ss, tt)]:
                 # print(guesses_cached[(ss, tt)][pp])
-                feat = feature_generator.\
-                    vw_from_score(guesses_cached[(ss, tt)][pp])
+                feat = feature_generator.vw_from_score(guesses_cached[(ss, tt)][pp])
             else:
                 try:
                     feat = feature_generator.\
@@ -187,6 +187,7 @@ def guesses_for_question(qq, features_that_guess, guess_list=None,
                     features_that_guess[ff].score_one_guess(gg, tt)
                 missing += 1
     return guesses
+
 
 class Labeler(FeatureExtractor):
     def __init__(self, question_db):
@@ -335,6 +336,39 @@ class GuessList:
                               (fold, question, ss, tt, gg,
                                guesser, val, feat))
         self._conn.commit()
+
+
+def spark_execute(question_db="data/questions.db",
+                  guess_db="data/guesses.db",
+                  answer_limit=5,
+                  granularity='sentence'):
+    sc = SparkContext(appName="QuizBowl")
+    questions = QuestionDatabase(question_db)
+    guess_list = GuessList(guess_db)
+    all_questions = questions.questions_with_pages()
+    b_all_questions = sc.broadcast(all_questions)
+
+    feature_names = ['label', 'ir', 'lm', 'deep', 'answer_present', 'text', 'classifier', 'wikilinks']
+    features = {
+        'label': instantiate_feature('label', questions),
+    }
+    b_features = sc.broadcast(features)
+    pages = sc.parallelize(all_questions.keys())\
+        .filter(lambda p: len(b_all_questions.value[p]) > answer_limit)
+    pairs = sc.parallelize(['label']).cartesian(pages)
+    pairs.collect()
+    sc.stop()
+
+
+def evaluate_feature_question(pair, b_features, b_all_questions, granularity):
+    feature = b_features.value[pair[0]]
+    page = pair[1]
+    questions = filter(lambda q: q.fold != 'train', b_all_questions.value[page])
+    for q in questions:
+        for ss, tt, pp, feat in feature_lines(qq, guess_list, granularity, feature_generator):
+            pass
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='')
