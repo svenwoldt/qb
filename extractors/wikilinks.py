@@ -4,21 +4,22 @@ import argparse
 from glob import glob
 from math import log
 
-from wikipedia.exceptions import DisambiguationError, PageError
+from wikipedia.exceptions import PageError
 from feature_extractor import FeatureExtractor
 from util.cached_wikipedia import CachedWikipedia
 from clm.lm_wrapper import kGOODCHAR
 
 
 class WikiLinks(FeatureExtractor):
-    def __init__(self, xml_location="data/wikifier/data/output",
+    def __init__(self,
+                 xml_location="data/wikifier/data/output",
                  wikipedia="data/wikipedia",
-                 country_list="data/country_list.txt"):
-        self._name = "wikilinks"
+                 country_list='data/country_list.txt'):
+        super(WikiLinks, self).__init__()
+        self.name = "wikilinks"
         self._location = xml_location
         self._links = defaultdict(dict)
         self._wiki = CachedWikipedia(wikipedia, country_list)
-
         self._cache = -1
         self._matches = None
 
