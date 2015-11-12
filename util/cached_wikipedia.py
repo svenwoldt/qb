@@ -1,5 +1,7 @@
+from __future__ import print_function, absolute_import
+
 import os
-import cPickle as pickle
+from util.imports import pickle
 import time
 from time import sleep
 from requests import ConnectionError
@@ -111,7 +113,6 @@ class CachedWikipedia:
                 raw = [CachedWikipedia.load_page(key)]
 
             raw = [x for x in raw if not x is None]
-
             sleep(.3)
             if raw:
                 if len(raw) > 1:
@@ -144,6 +145,6 @@ if __name__ == "__main__":
         print("~~~~~")
         print(ii)
         start = time.time()
-        print cw[ii].content[:80]
-        print str(cw[ii].links)[:80]
+        print(cw[ii].content[:80])
+        print(str(cw[ii].links)[:80])
         print(time.time() - start)

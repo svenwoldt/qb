@@ -1,3 +1,6 @@
+from __future__ import absolute_import, print_function
+from future.builtins import range
+
 from collections import defaultdict
 import xml.etree.ElementTree as ET
 import argparse
@@ -35,7 +38,7 @@ class WikiLinks(FeatureExtractor):
             self._cache = hash(text)
             self._matches = set()
 
-            for ii in xrange(self._sent):
+            for ii in range(self._sent):
                 self._matches = self._matches | \
                     set(x[0] for x in
                         self._links[self._qnum].get(ii, {}).values())
@@ -105,5 +108,5 @@ if __name__ == "__main__":
 
     wl.load_xml(700000024)
     wl.set_metadata("", "", 700000024, 10, 0, 50, "expo")
-    print wl._qnum
-    print wl.vw_from_title("Yukio Mishima", "")
+    print(wl._qnum)
+    print(wl.vw_from_title("Yukio Mishima", ""))
