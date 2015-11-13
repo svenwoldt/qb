@@ -1,19 +1,21 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
+
 from collections import defaultdict, OrderedDict
 import argparse
 import sqlite3
 import sys
 import time
-import pickle
+from util.imports import pickle
 from unidecode import unidecode
 
-from numpy import var, mean
 from pyspark import SparkContext
 
 from util.qdb import QuestionDatabase
+from util.guess import GuessList
+from extractors.abstract import FeatureExtractor
+
 from extractors.ir import IrExtractor
 from extractors.text import TextExtractor
-from feature_extractor import FeatureExtractor
 from extractors.lm import *
 from extractors.deep import *
 from extractors.classifier import *
@@ -22,11 +24,16 @@ from extractors.mentions import Mentions
 from extractors.answer_present import AnswerPresent
 
 kMIN_APPEARANCES = 5
-kFEATURES = OrderedDict([("ir", None), ("lm", None), ("deep", None),
-    ("answer_present", None), ("text", None),
-    ("classifier", None), ("wikilinks", None),
-    ("mentions", None),
-    ])
+kFEATURES = OrderedDict([
+    ("ir", None),
+    ("lm", None),
+    ("deep", None),
+    ("answer_present", None),
+    ("text", None),
+    ("classifier", None),
+    ("wikilinks", None),
+    ("mentions", None)
+])
 
 # Add features that actually guess
 # TODO: Make this less cumbersome
@@ -165,7 +172,7 @@ def guesses_for_question(qq, features_that_guess, guess_list=None,
             for gg in results:
                 guesses[ff][(ss, ww)][gg] = results[gg]
             # add the correct answer if this is a training document and
-            if qq.fold == "train" and not qq.page in results:
+            if qq.fold == "train" and qq.page not in results:
                 guesses[ff][(ss, ww)][qq.page] = \
                   features_that_guess[ff].score_one_guess(qq.page, tt)
 
@@ -181,7 +188,7 @@ def guesses_for_question(qq, features_that_guess, guess_list=None,
         # Add missing guesses
         for ff in features_that_guess:
             missing = 0
-            for gg in [x for x in all_guesses if not x in
+            for gg in [x for x in all_guesses if x not in
                         guesses[ff][(ss, ww)]]:
                 guesses[ff][(ss, ww)][gg] = \
                     features_that_guess[ff].score_one_guess(gg, tt)
@@ -227,116 +234,6 @@ class Labeler(FeatureExtractor):
 
     def name(self):
         return "label"
-
-
-class GuessList:
-    def __init__(self, db_path):
-        # Create the database structure if it doesn't exist
-        self.db_structure(db_path)
-        self._conn = sqlite3.connect(db_path)
-        self._stats = {}
-
-    def db_structure(self, db_path):
-        conn = sqlite3.connect(db_path)
-        c = conn.cursor()
-        sql = 'CREATE TABLE IF NOT EXISTS guesses (' + \
-            'fold TEXT, question INTEGER, sentence INTEGER, token INTEGER, page TEXT,' + \
-            ' guesser TEXT, feature TEXT, score NUMERIC, PRIMARY KEY ' + \
-            '(fold, question, sentence, token, page, guesser, feature));'
-        c.execute(sql)
-        conn.commit()
-
-    def number_guesses(self, question, guesser):
-        query = 'SELECT COUNT(*) FROM guesses WHERE question=? AND guesser=?;'
-        c = self._conn.cursor()
-        c.execute(query, (question.qnum, guesser,))
-        for count, in c:
-            return count
-        return 0
-
-    def all_guesses(self, question):
-        query = 'SELECT sentence, token, page FROM guesses WHERE question=?;'
-        c = self._conn.cursor()
-        c.execute(query, (question.qnum,))
-
-        guesses = defaultdict(set)
-        for ss, tt, pp in c:
-            guesses[(ss, tt)].add(pp)
-        if question.page and question.fold == "train":
-            for (ss, tt) in guesses:
-                guesses[(ss, tt)].add(question.page)
-        return guesses
-
-    def check_recall(self, question_list, guesser_list, correct_answer):
-        totals = defaultdict(int)
-        correct = defaultdict(int)
-        c = self._conn.cursor()
-
-        query = 'SELECT count(*) as cnt FROM guesses WHERE guesser=? ' + \
-            'AND page=? AND question=?;'
-        for gg in guesser_list:
-            for qq in question_list:
-                if qq.fold == "train":
-                    continue
-
-                c.execute(query, (gg, correct_answer, qq.qnum,))
-                data = c.fetchone()[0]
-                if data != 0:
-                    correct[gg] += 1
-                totals[gg] += 1
-
-        for gg in guesser_list:
-            if totals[gg] > 0:
-                yield gg, float(correct[gg]) / float(totals[gg])
-
-    def guesser_statistics(self, guesser, feature, limit=5000):
-        """
-        Return the mean and variance of a guesser's scores.
-        """
-
-        if limit > 0:
-            query = 'SELECT score FROM guesses WHERE guesser=? AND feature=? AND score>0 LIMIT %i;' % limit
-        else:
-            query = 'SELECT score FROM guesses WHERE guesser=? AND feature=? AND score>0;'
-        c = self._conn.cursor()
-        c.execute(query, (guesser, feature,))
-
-        # TODO(jbg): Is there a way of computing this without casting to list?
-        values = list(x[0] for x in c if x[0] > kNEGINF)
-
-        return mean(values), var(values)
-
-    def get_guesses(self, guesser, question):
-        query = 'SELECT sentence, token, page, feature, score ' + \
-            'FROM guesses WHERE question=? AND guesser=?;'
-        c = self._conn.cursor()
-        # print(query, question.qnum, guesser,)
-        c.execute(query, (question.qnum, guesser,))
-
-        guesses = defaultdict(dict)
-        for ss, tt, pp, ff, vv in c:
-            if not pp in guesses[(ss, tt)]:
-                guesses[(ss, tt)][pp] = {}
-            guesses[(ss, tt)][pp][ff] = vv
-        return guesses
-
-    def add_guesses(self, guesser, question, fold, guesses):
-        # Remove the old guesses
-        query = 'DELETE FROM guesses WHERE question=? AND guesser=?;'
-        c = self._conn.cursor()
-        c.execute(query, (question, guesser,))
-
-        # Add in the new guesses
-        query = 'INSERT INTO guesses' + \
-            '(fold, question, sentence, token, page, guesser, score, feature) ' + \
-            'VALUES(?, ?, ?, ?, ?, ?, ?, ?);'
-        for ss, tt in guesses:
-            for gg in guesses[(ss, tt)]:
-                for feat, val in guesses[(ss, tt)][gg].items():
-                    c.execute(query,
-                              (fold, question, ss, tt, gg,
-                               guesser, val, feat))
-        self._conn.commit()
 
 
 def spark_execute(question_db="data/questions.db",
