@@ -12,8 +12,8 @@ from pyspark import SparkContext
 
 from util.qdb import QuestionDatabase
 from util.guess import GuessList
-from extractors.abstract import FeatureExtractor
 
+from extractors.labeler import Labeler
 from extractors.ir import IrExtractor
 from extractors.text import TextExtractor
 from extractors.lm import *
@@ -37,23 +37,22 @@ kFEATURES = OrderedDict([
 
 # Add features that actually guess
 # TODO: Make this less cumbersome
-kHAS_GUESSES = set()
+HAS_GUESSES = set()
 if IrExtractor.has_guess():
-    kHAS_GUESSES.add("ir")
+    HAS_GUESSES.add("ir")
 if LanguageModel.has_guess():
-    kHAS_GUESSES.add("lm")
+    HAS_GUESSES.add("lm")
 if TextExtractor.has_guess():
-    kHAS_GUESSES.add("text")
+    HAS_GUESSES.add("text")
 if DeepExtractor.has_guess():
-    kHAS_GUESSES.add("deep")
+    HAS_GUESSES.add("deep")
 if Classifier.has_guess():
-    kHAS_GUESSES.add("classifier")
+    HAS_GUESSES.add("classifier")
 if AnswerPresent.has_guess():
-    kHAS_GUESSES.add("answer_present")
+    HAS_GUESSES.add("answer_present")
 
 kGRANULARITIES = ["sentence"]
 kFOLDS = ["dev", "devtest", "test"]
-kNEGINF = float("-inf")
 
 
 def feature_lines(qq, guess_list, granularity, feature_generator):
@@ -133,9 +132,14 @@ def instantiate_feature(feature_name, questions):
         page_dict = {}
         for page in questions.get_all_pages():
             page_dict[page.lower().replace(' ', '_')] = page
-        feature = DeepExtractor("data/deep/classifier", \
-            "data/deep/params", "data/deep/vocab", \
-            "data/common/ners", page_dict, 200)
+        feature = DeepExtractor(
+            "data/deep/classifier",
+            "data/deep/params",
+            "data/deep/vocab",
+            "data/common/ners",
+            page_dict,
+            200
+        )
     elif feature_name == "wikilinks":
         feature = WikiLinks()
     elif feature_name == "answer_present":
@@ -188,52 +192,11 @@ def guesses_for_question(qq, features_that_guess, guess_list=None,
         # Add missing guesses
         for ff in features_that_guess:
             missing = 0
-            for gg in [x for x in all_guesses if x not in
-                        guesses[ff][(ss, ww)]]:
+            for gg in [x for x in all_guesses if x not in guesses[ff][(ss, ww)]]:
                 guesses[ff][(ss, ww)][gg] = \
                     features_that_guess[ff].score_one_guess(gg, tt)
                 missing += 1
     return guesses
-
-
-class Labeler(FeatureExtractor):
-    def __init__(self, question_db):
-        super(Labeler, self).__init__()
-
-        self._correct = None
-        self._num_guesses = 0
-
-        all_questions = question_db.questions_with_pages()
-        self._counts = {}
-
-        # Get the counts
-        for ii in all_questions:
-            self._counts[ii] = sum(1 for x in all_questions[ii] if
-                                   x.fold == "train")
-        # Standardize the scores
-        count_mean = mean(list(self._counts.values()))
-        count_var = var(list(self._counts.values()))
-        for ii in all_questions:
-            self._counts[ii] = float(self._counts[ii] - count_mean) / count_var
-
-    def vw_from_title(self, title, query):
-        assert self._correct, "Answer not set"
-        title = title.replace(":", "").replace("|", "")
-
-        # TODO: Incorporate token position here as well to improve
-        # position-based features
-        if title == self._correct:
-            return "1 '%s |guess %s sent:%0.1f count:%f " % \
-                (self._id, unidecode(title).replace(" ", "_"), self._sent,
-                 self._counts.get(title, -2))
-        else:
-            return "-1 %i '%s |guess %s sent:%0.1f count:%f " % \
-                (self._num_guesses, self._id,
-                 unidecode(title).replace(" ", "_"), self._sent - 2.0,
-                 self._counts.get(title, -2))
-
-    def name(self):
-        return "label"
 
 
 def spark_execute(question_db="data/questions.db",
@@ -312,7 +275,7 @@ if __name__ == "__main__":
         #                                   (flags.whoosh_qb, cc))
 
         kFEATURES["deep"] = instantiate_feature("deep", questions)
-        # features_that_guess = set(kFEATURES[x] for x in kHAS_GUESSES)
+        # features_that_guess = set(kFEATURES[x] for x in HAS_GUESSES)
         features_that_guess = {"deep": kFEATURES["deep"]}
         print("Guesses %s" % "\t".join(x for x in features_that_guess))
 
