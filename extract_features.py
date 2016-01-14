@@ -195,29 +195,32 @@ def guesses_for_question(qq, features_that_guess, guess_list=None,
     return guesses
 
 
-def spark_execute(question_db="data/questions.db",
-                  guess_db="data/guesses.db",
+def spark_execute(question_db="/Users/pedro/Code/qb/data/questions.db",
+                  guess_db="/Users/pedro/Code/qb/data/guesses.db",
                   answer_limit=5,
                   granularity='sentence'):
-    sc = SparkContext(appName="QuizBowl")
+    sc = SparkContext(appName="QuizBowl", master='spark://terminus.local:7077')
     sql_context = SQLContext(sc)
-    questions = QuestionDatabase(question_db)
+    question_db = QuestionDatabase(question_db)
     guess_rdd = sql_context.read.format('jdbc')\
         .options(url='jdbc:sqlite:/Users/pedro/Code/qb/data/guesses.db', dbtable='guesses').load()
     guess_list = GuessList(guess_db)
     b_guess_list = sc.broadcast(guess_list)
-    all_questions = questions.questions_with_pages()
-    b_all_questions = sc.broadcast(all_questions)
+    questions = question_db.questions_with_pages()
+
+    b_questions = sc.broadcast(questions)
 
     feature_names = ['label', 'ir', 'lm', 'deep', 'answer_present', 'text', 'classifier',
                      'wikilinks']
     features = {
-        'label': instantiate_feature('label', questions),
+        'label': instantiate_feature('label', question_db),
     }
     b_features = sc.broadcast(features)
-    f_eval = lambda x: evaluate_feature_question(x, b_features, b_all_questions, b_guess_list, granularity)
-    pages = sc.parallelize(all_questions.keys())\
-        .filter(lambda p: len(b_all_questions.value[p]) > answer_limit)
+    f_eval = lambda x: evaluate_feature_question(
+            x, b_features, b_questions, b_guess_list, granularity)
+    pages = sc.parallelize(questions.keys())\
+        .filter(lambda p: len(b_questions.value[p]) > answer_limit).cache()
+    print("Number of pages: {0}".format(pages.count()))
     pairs = sc.parallelize(['label']).cartesian(pages).map(f_eval)
     pairs.collect()
     sc.stop()
@@ -227,6 +230,7 @@ def evaluate_feature_question(pair, b_features, b_all_questions, b_guess_list, g
     feature_generator = b_features.value[pair[0]]
     page = pair[1]
     questions = filter(lambda q: q.fold != 'train', b_all_questions.value[page])
+    print("evaluating {0}".format(page))
     for qq in questions:
         for ss, tt, pp, feat in feature_lines(qq, b_guess_list.value, granularity, feature_generator):
             pass
@@ -331,14 +335,14 @@ if __name__ == "__main__":
                         (ii, flags.granularity, name))
             print("Opening %s for output" % filename)
 
-            o[ii] = open(filename, 'w')
+            #o[ii] = open(filename, 'w')
             if flags.label:
                 filename = ("features/%s/%s.meta" %
                                 (ii, flags.granularity))
             else:
                 filename = ("features/%s/%s.meta" %
                                 (ii, flags.feature))
-            meta[ii] = open(filename, 'w')
+            #meta[ii] = open(filename, 'w')
 
         all_questions = questions.questions_with_pages()
 
@@ -354,6 +358,7 @@ if __name__ == "__main__":
         start = time.time()
         max_relevant = sum(1 for x in all_questions
                            if len(all_questions[x]) >= flags.ans_limit)
+
         for page in all_questions:
             if len(all_questions[page]) >= flags.ans_limit:
                 page_count += 1
@@ -377,14 +382,15 @@ if __name__ == "__main__":
                                                               feature_generator):
                             feat_lines += 1
                             if meta:
-                                meta[qq.fold].write("%i\t%i\t%i\t%s\n" %
-                                                    (qq.qnum, ss, tt,
-                                                     unidecode(pp)))
+                                pass
+                                #meta[qq.fold].write("%i\t%i\t%i\t%s\n" %
+                                #                    (qq.qnum, ss, tt,
+                                #                     unidecode(pp)))
                             assert feat is not None
-                            o[qq.fold].write("%s\n" % feat)
+                            #o[qq.fold].write("%s\n" % feat)
                             assert fold_here == qq.fold, "%s %s" % (fold_here, qq.fold)
                             # print(ss, tt, pp, feat)
-                        o[qq.fold].flush()
+                        #o[qq.fold].flush()
 
                 if 0 < flags.limit < page_count:
                     break
