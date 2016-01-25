@@ -98,6 +98,7 @@ class LanguageModelBase:
         for ii in kTOKENIZER(unidecode(sentence)):
             yield self.vocab_lookup(ii.lower())
 
+
 class LanguageModelReader(LanguageModelBase):
     def __init__(self, lm_file, interp=0.8):
         from clm import intArray
@@ -116,7 +117,7 @@ class LanguageModelReader(LanguageModelBase):
 
         vocab_size = int(infile.readline())
         self._vocab = {}
-        for ii in xrange(vocab_size):
+        for ii in range(vocab_size):
             self._vocab[infile.readline().strip()] = ii
         print("Done reading %i vocab (Python)" % vocab_size)
 
@@ -145,6 +146,7 @@ class LanguageModelReader(LanguageModelBase):
             guess_id = self._corpora[norm_title]
             return self._lm.feature(corpus, guess_id, self._sentence,
                                     self._sentence_length)
+
 
 class LanguageModelWriter(LanguageModelBase):
     def __init__(self, vocab_size, comparison_corpora):
@@ -233,6 +235,7 @@ class LanguageModelWriter(LanguageModelBase):
 
         for ii in sorted(self._unigram):
             for jj in xrange(vocab_size):
+
                 if jj in self._obs_counts[ii]:
                     total = self._obs_counts[ii][jj].N()
                     contexts = self._obs_counts[ii][jj].B()
