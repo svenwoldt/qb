@@ -93,7 +93,7 @@ class LanguageModelBase:
         Prefix the sentence with <s>, replace words not in the vocabulary with
         <UNK>, and end the sentence with </s>.
         """
-        if not isinstance(sentence, basestring):
+        if not isinstance(sentence, str):
             sentence = ' '.join(list(sentence))
         for ii in kTOKENIZER(unidecode(sentence)):
             yield self.vocab_lookup(ii.lower())
@@ -127,7 +127,8 @@ class LanguageModelReader(LanguageModelBase):
             corpus, compare = line.split()
             self._corpora[corpus] = ii
 
-        print(self._corpora.keys()[:10])
+        print(list(self._corpora.keys())[:10])
+        print(list(self._corpora.keys())[:10])
         self._lm.read_counts(self._datafile)
 
     def feature_line(self, corpus, guess, sentence):
@@ -140,7 +141,7 @@ class LanguageModelReader(LanguageModelBase):
                 self._sentence[ii] = ww
 
         norm_title = self.normalize_title(corpus, guess)
-        if not norm_title in self._corpora or self._sentence_length==0:
+        if norm_title not in self._corpora or self._sentence_length == 0:
             return ""
         else:
             guess_id = self._corpora[norm_title]
@@ -219,7 +220,7 @@ class LanguageModelWriter(LanguageModelBase):
         outfile.write("%i\n" % len(self._unigram))
         outfile.write("%i\n" % len(self._vocab))
         vocab_size = len(self._vocab)
-        for ii, count in sorted(self._vocab.iteritems(),
+        for ii, count in sorted(self._vocab.items(),
                                 key=lambda key_value: key_value[1]):
             outfile.write("%s\n" % ii)
         print("Done writing vocab")
