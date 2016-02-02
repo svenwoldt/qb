@@ -49,7 +49,7 @@ class WikiLinks(FeatureExtractor):
                     self._matches.add(title)
 
         total = 0
-        matches = ["|%s" % self._name]
+        matches = ["|%s" % self.name]
         display_title = "".join(x for x in kGOODCHAR.findall(title) if x)
         bad = set()
         for ii in [x for x in self._matches]:
