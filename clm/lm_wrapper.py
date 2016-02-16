@@ -101,8 +101,6 @@ class LanguageModelBase:
 
 class LanguageModelReader(LanguageModelBase):
     def __init__(self, lm_file, interp=0.8):
-        from clm import intArray
-
         self._datafile = lm_file
         self._lm = clm.JelinekMercerFeature()
         self._lm.set_interpolation(interp)
@@ -122,7 +120,7 @@ class LanguageModelReader(LanguageModelBase):
         print("Done reading %i vocab (Python)" % vocab_size)
 
         self._corpora = {}
-        for ii in xrange(num_lms):
+        for ii in range(num_lms):
             line = infile.readline()
             corpus, compare = line.split()
             self._corpora[corpus] = ii
@@ -235,7 +233,7 @@ class LanguageModelWriter(LanguageModelBase):
             outfile.write("%s %i\n" % (ii, self.compare(ii)))
 
         for ii in sorted(self._unigram):
-            for jj in xrange(vocab_size):
+            for jj in range(vocab_size):
 
                 if jj in self._obs_counts[ii]:
                     total = self._obs_counts[ii][jj].N()
@@ -319,7 +317,7 @@ if __name__ == "__main__":
                 start = time.time()
             lm.add_train(norm_title, text)
             comp = lm.compare(norm_title)
-            for ii in xrange(flags.global_lms):
+            for ii in range(flags.global_lms):
                 if comp != ii:
                     lm.add_train("compare_%i" % ii, text)
 
