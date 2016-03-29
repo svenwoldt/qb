@@ -116,10 +116,13 @@ class LanguageModelReader(LanguageModelBase):
         vocab_size = int(infile.readline())
         self._vocab = {}
         for ii in range(vocab_size):
-            line = infile.readline().strip()
-            print('VLINE {0}: '.format(ii) + line)
-            self._vocab[line] = ii
+            line = infile.readline().split()
+            assert type(line) == list and len(line) == 1
+            vocab = line[0]
+            print('VLINE {0}: '.format(ii) + vocab)
+            self._vocab[vocab] = ii
         print("Done reading %i vocab (Python)" % vocab_size)
+
 
         self._corpora = {}
         for ii in range(num_lms):
