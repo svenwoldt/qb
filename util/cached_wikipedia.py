@@ -4,10 +4,9 @@ import time
 from time import sleep
 from requests import ConnectionError
 from requests.exceptions import ReadTimeout
-from itertools import chain
 
 from unidecode import unidecode
-import wikipedia, fileinput
+import wikipedia
 from wikipedia.exceptions import WikipediaException
 from functional import seq
 
@@ -36,8 +35,7 @@ class CachedWikipedia:
         else:
             self._countries = dict()
 
-    @staticmethod
-    def load_page(key):
+    def load_page(self, key):
         print("Loading %s" % key)
         try:
             raw = wikipedia.page(key, preload=True)
@@ -76,7 +74,7 @@ class CachedWikipedia:
             print("Connection error, waiting 1 minutes ...")
             sleep(60)
             print("trying again")
-            return load_page(key)
+            return self.load_page(key)
         return raw
 
     def __getitem__(self, key):
@@ -134,12 +132,18 @@ class CachedWikipedia:
         self._cache[key] = page
         return page
 
-if __name__ == "__main__":
+
+def main():
     cw = CachedWikipedia("data/wikipedia", "data/country_list.txt")
-    for ii in ["Camille_Saint-Saens", "Napoleon", "Langston Hughes", "Whigs_(British_political_party)", "Carthage", "Stanwix", "Lango people", "Lango language (Uganda)", "Keokuk", "Burma", "United Kingdom"]:
+    for ii in ["Camille_Saint-Saens", "Napoleon", "Langston Hughes",
+               "Whigs_(British_political_party)", "Carthage", "Stanwix", "Lango people",
+               "Lango language (Uganda)", "Keokuk", "Burma", "United Kingdom"]:
         print("~~~~~")
         print(ii)
         start = time.time()
         print(cw[ii].content[:80])
         print(str(cw[ii].links)[:80])
         print(time.time() - start)
+
+if __name__ == "__main__":
+    main()
