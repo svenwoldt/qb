@@ -1,20 +1,15 @@
-import textwrap
-from collections import defaultdict
 import argparse
-from csv import DictReader
 from time import sleep
-from string import lower
-from random import shuffle
-import sys
 import os
 
-from buzzer import kSHOW_RIGHT, kPAUSE, kBIGNUMBERS
-from buzzer import clear_screen, PowerPositions, show_score
-from buzzer import Guess, Buzzes, Questions, format_display
-from buzzer import load_finals, interpret_keypress, answer
+from qanta.expo.buzzer import kPAUSE
+from qanta.expo.buzzer import clear_screen, PowerPositions, show_score
+from qanta.expo.buzzer import Buzzes, Questions, format_display
+from qanta.expo.buzzer import load_finals, interpret_keypress, answer
 
-kPADDING = "WAIT"
-kPAD_LEN = 5
+PADDING = "WAIT"
+PAD_LEN = 5
+
 
 class Score:
     def __init__(self, even=0, odd=0, human=0, computer=0):
@@ -49,7 +44,7 @@ def present_question(display_num, question_id, question_text, buzzes, final,
                 computer_guess = buzz_now[0].page
                 break
 
-    question_text[ss] += " %s " % " ".join([kPADDING] * 5)
+    question_text[ss] += " %s " % " ".join([PADDING] * 5)
 
     question_done = False
     human_delta = 0
@@ -86,7 +81,7 @@ def present_question(display_num, question_id, question_text, buzzes, final,
                     computer_delta = 0
 
             current_guesses = buzzes.current_guesses(question_id, ss, ii)
-            if lower(ww).startswith(lower(power)):
+            if str.lower(ww).startswith(str.lower(power)):
                 question_value = 10
             press = interpret_keypress()
 
@@ -103,7 +98,7 @@ def present_question(display_num, question_id, question_text, buzzes, final,
                 os.system("afplay /System/Library/Sounds/Glass.aiff")
                 response = None
                 while response is None:
-                    response = raw_input("Player %i, provide an answer:\t"
+                    response = input("Player %i, provide an answer:\t"
                                          % str(press))
                     if '+' in response:
                         if press % 2 == 0:
@@ -116,9 +111,9 @@ def present_question(display_num, question_id, question_text, buzzes, final,
                         elif computer_delta == 0 and human_delta == 0:
                             human_delta = question_value
                     elif '-' in response:
-                        if even_delta == 0 and press % 2 != 0 and ww != kPADDING:
+                        if even_delta == 0 and press % 2 != 0 and ww != PADDING:
                             odd_delta = -5
-                        if odd_delta == 0 and press % 2 == 0 and ww != kPADDING:
+                        if odd_delta == 0 and press % 2 == 0 and ww != PADDING:
                             even_delta = -5
                         if computer_delta == 0:
                             human_delta = -5
@@ -175,7 +170,7 @@ def present_question(display_num, question_id, question_text, buzzes, final,
     return score.add(Score(even_delta, odd_delta, human_delta, computer_delta))
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--questions', type=str, default='questions.csv')
     parser.add_argument('--buzzes', type=str, default="ir_buzz.csv")
@@ -249,5 +244,9 @@ if __name__ == "__main__":
                "TEAM A", "TEAM B",
                left_color="RED",
                right_color="YELLOW")
-        
+
     show_score(score.human, score.computer)
+
+
+if __name__ == "__main__":
+    main()
