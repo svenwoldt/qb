@@ -5,7 +5,7 @@ from glob import glob
 from math import log
 
 from wikipedia.exceptions import PageError
-from util.cached_wikipedia import CachedWikipedia
+from qanta.wikipedia.cached_wikipedia import CachedWikipedia
 from clm.lm_wrapper import kGOODCHAR
 from qanta.extractors.abstract import FeatureExtractor
 
